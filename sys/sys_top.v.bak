@@ -90,7 +90,7 @@ module sys_top
 	//output        LED_USER,
 	output        LED_HDD,
 	output        LED_POWER,
-	//input         BTN_USER,
+	input         BTN_USER,
 	input         BTN_OSD,
 	input         BTN_RESET,
 `endif
@@ -151,9 +151,6 @@ wire led_p =  led_power[1] ? ~led_power[0] : 1'b0;
 wire led_d =  led_disk[1]  ? ~led_disk[0]  : ~(led_disk[0] | gp_out[29]);
 wire led_u = ~led_user;
 wire led_locked;
-
-//Senhor: BTN_USER does not exist on this board.
-wire BTN_USER = 1'b1;
 
 //LEDs on de10-nano board
 assign LED = (led_overtake & led_state) | (~led_overtake & {1'b0,led_locked,1'b0, ~led_p, 1'b0, ~led_d, 1'b0, ~led_u});
