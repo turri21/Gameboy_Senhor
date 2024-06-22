@@ -41,20 +41,20 @@ module sys_top
 	output        HDMI_TX_HS,
 	output        HDMI_TX_VS,
 	
-	input         HDMI_TX_INT,
+//	input         HDMI_TX_INT,
 
 	//////////// SDR ///////////
 	output [12:0] SDRAM_A,
 	inout  [15:0] SDRAM_DQ,
-	//output        SDRAM_DQML,
-	//output        SDRAM_DQMH,
+	output        SDRAM_DQML,
+	output        SDRAM_DQMH,
 	output        SDRAM_nWE,
 	output        SDRAM_nCAS,
 	output        SDRAM_nRAS,
 	output        SDRAM_nCS,
 	output  [1:0] SDRAM_BA,
 	output        SDRAM_CLK,
-	//output        SDRAM_CKE,
+	output        SDRAM_CKE,
 
 `ifdef MISTER_DUAL_SDRAM
 	////////// SDR #2 //////////
@@ -72,9 +72,9 @@ module sys_top
 	//output  [5:0] VGA_R,
 	//output  [5:0] VGA_G,
 	//output  [5:0] VGA_B,
-	inout         VGA_HS,
-	output		  VGA_VS,
-	input         VGA_EN,  // active low
+	//inout         VGA_HS,
+	//output		    VGA_VS,
+	//input         VGA_EN,  // active low
 
 	/////////// AUDIO //////////
 	//output		  AUDIO_L,
@@ -88,11 +88,11 @@ module sys_top
 
 	//////////// I/O ///////////
 	//output        LED_USER,
-	output        LED_HDD,
-	output        LED_POWER,
+	//output        LED_HDD,
+	//output        LED_POWER,
 	//input         BTN_USER,
-	input         BTN_OSD,
-	input         BTN_RESET,
+	//input         BTN_OSD,
+	//input         BTN_RESET,
 `endif
 
 	////////// I/O ALT /////////
@@ -124,12 +124,33 @@ module sys_top
 	//inout   [6:0] USER_IO
 );
 
+///////////////////////// Senhor: Initializations ////////////////////////
+
+//(* keep = 1 *) wire [5:0] VGA_R;
+//(* keep = 1 *) wire [5:0] VGA_G;
+//(* keep = 1 *) wire [5:0] VGA_B;
+ wire [5:0] VGA_R;
+ wire [5:0] VGA_G;
+ wire [5:0] VGA_B;
+(* keep = 1 *) wire VGA_HS;
+(* keep = 1 *) wire VGA_VS;
+wire VGA_EN = 1'b1;
+
+wire [3:0] SDIO_DAT;
+wire SDIO_CMD = 1'b1;
+wire [6:0] USER_IO;
+wire SD_SPI_MISO = 1'b1;
+
+wire BTN_RESET = 1'b1, BTN_OSD = 1'b1, BTN_USER = 1'b1;
+
+/////////////////////////////////////////////////////////////////////////
+
 //////////////////////  Secondary SD  ///////////////////////////////////
 wire SD_CS, SD_CLK, SD_MOSI, SD_MISO, SD_CD;
 
 `ifndef MISTER_DUAL_SDRAM
 	assign SD_CD       = mcp_en ? mcp_sdcd : SDCD_SPDIF;
-//	assign SD_MISO     = SD_CD | (mcp_en ? SD_SPI_MISO : (VGA_EN | SDIO_DAT[0]));
+	assign SD_MISO     = SD_CD | (mcp_en ? SD_SPI_MISO : (VGA_EN | SDIO_DAT[0]));
 	assign SD_SPI_CS   = mcp_en ?  (mcp_sdcd  ? 1'bZ : SD_CS) : (sog & ~cs1 & ~VGA_EN) ? 1'b1 : 1'bZ;
 	assign SD_SPI_CLK  = (~mcp_en | mcp_sdcd) ? 1'bZ : SD_CLK;
 	assign SD_SPI_MOSI = (~mcp_en | mcp_sdcd) ? 1'bZ : SD_MOSI;
@@ -151,9 +172,6 @@ wire led_p =  led_power[1] ? ~led_power[0] : 1'b0;
 wire led_d =  led_disk[1]  ? ~led_disk[0]  : ~(led_disk[0] | gp_out[29]);
 wire led_u = ~led_user;
 wire led_locked;
-
-//Senhor: BTN_USER does not exist on this board.
-wire BTN_USER = 1'b1;
 
 //LEDs on de10-nano board
 assign LED = (led_overtake & led_state) | (~led_overtake & {1'b0,led_locked,1'b0, ~led_p, 1'b0, ~led_d, 1'b0, ~led_u});
@@ -182,7 +200,7 @@ wire io_dig = mcp_en ? mcp_mode : SW[3];
 	wire   av_dis    = io_dig | VGA_EN;
 	assign LED_POWER = av_dis ? 1'bZ : mcp_en ? de1          : led_p ? 1'bZ : 1'b0;
 	assign LED_HDD   = av_dis ? 1'bZ : mcp_en ? (sog & ~cs1) : led_d ? 1'bZ : 1'b0;
-	//assign LED_USER  = av_dis ? 1'bZ : mcp_en ? ~vga_tx_clk  : led_u ? 1'bZ : 1'b0;
+	assign LED_USER  = av_dis ? 1'bZ : mcp_en ? ~vga_tx_clk  : led_u ? 1'bZ : 1'b0;
 	assign LED_USER  = VGA_TX_CLK;
 	wire   BTN_DIS   = VGA_EN;
 `else
@@ -219,11 +237,11 @@ always @(posedge FPGA_CLK2_50) begin
 	if(div > 100000) div <= 0;
 
 	if(!div) begin
-		deb_user <= {deb_user[6:0], btn_u | ~KEY[1]};
+		deb_user <= {deb_user[6:0], btn_u | ~KEY[0]};  //MiSTer: ~KEY[1] Senhor: Buttons are switched for convenience.
 		if(&deb_user) btn_user <= 1;
 		if(!deb_user) btn_user <= 0;
 
-		deb_osd <= {deb_osd[6:0], btn_o | ~KEY[0]};
+		deb_osd <= {deb_osd[6:0], btn_o | ~KEY[1]}; //MiSTer: ~KEY[0] Senhor: Buttons are switched for convenience.
 		if(&deb_osd) btn_osd <= 1;
 		if(!deb_osd) btn_osd <= 0;
 	end
